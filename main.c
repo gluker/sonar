@@ -11,10 +11,12 @@
 #include "driverlib/gpio.h"
 #include "driverlib/timer.h"
 #include "driverlib/pin_map.h"
+#include "driverlib/systick.h"
 
 #define	SONAR_PORT	GPIO_PORTD_BASE
 #define TRIG_PIN	GPIO_PIN_1
 #define ECHO_PIN	GPIO_PIN_0
+#define CLK			80000000
 unsigned long xyu = 0;
 
 void Timer0AIntHandler(void){
@@ -39,13 +41,13 @@ void GPIODIntHandler(void){
 	static int state = 0;
 
 	if (state){
-		cnt = TimerValueGet(TIMER0_BASE, TIMER_A) - cnt;
-		xyu = SysCtlClockGet()/cnt;
+		cnt -= SysTickValueGet();
+		cnt = (cnt/80000);
 		GPIOIntTypeSet(SONAR_PORT, ECHO_PIN, GPIO_RISING_EDGE);
 		state = 0;
 
 	}else{
-		cnt = TimerValueGet(TIMER0_BASE, TIMER_A);
+		cnt = SysTickValueGet();
 		GPIOIntTypeSet(SONAR_PORT, ECHO_PIN, GPIO_FALLING_EDGE);
 		state = 1;
 	}
@@ -57,6 +59,9 @@ void GPIODIntHandler(void){
 void hw_init(void){
 	SysCtlClockSet(SYSCTL_SYSDIV_2_5|SYSCTL_USE_PLL|SYSCTL_XTAL_16MHZ|SYSCTL_OSC_MAIN);
 
+	SysTickPeriodSet(0xffffffff);
+	SysTickEnable();
+
 	SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOD);
 	GPIODirModeSet(SONAR_PORT, TRIG_PIN, GPIO_DIR_MODE_OUT);
 
@@ -65,12 +70,11 @@ void hw_init(void){
 	GPIOPinIntEnable(SONAR_PORT,ECHO_PIN);
 	IntEnable(INT_GPIOD);
 
-
 	//Timer configuration
 	SysCtlPeripheralEnable(SYSCTL_PERIPH_TIMER0);
 	TimerConfigure(TIMER0_BASE, TIMER_CFG_A_PERIODIC);
-	const long timer_match = (80000000/1000000)*10;
-	const long timer_out = (80000000/1000)*100;
+	const long timer_match = (CLK/1000000)*10;
+	const long timer_out = (CLK/1000)*100;
 	TimerLoadSet(TIMER0_BASE, TIMER_A, timer_out);
 	TimerMatchSet(TIMER0_BASE, TIMER_A, timer_match);
 	TimerEnable(TIMER0_BASE, TIMER_A);
