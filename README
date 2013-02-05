@@ -1,0 +1,3 @@
+Sends trigger signal, and receives echo from HC-SR04 on Stellaris Launchpad.
+Uses one timer and one GPIO interrupts.
+Works only partly.
